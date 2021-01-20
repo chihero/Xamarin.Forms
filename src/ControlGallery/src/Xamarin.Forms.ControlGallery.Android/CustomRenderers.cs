@@ -20,11 +20,11 @@ using Xamarin.Forms.ControlGallery.Android;
 using Xamarin.Forms.Controls;
 using Xamarin.Forms.Controls.Issues;
 using Xamarin.Forms.Platform.Android;
-using AMenuItemCompat = global::Android.Support.V4.View.MenuItemCompat;
-using AView = Android.Views.View;
 using FragmentTransaction = AndroidX.Fragment.App.FragmentTransaction;
+using NestedScrollView = AndroidX.Core.Widget.NestedScrollView;
+using AMenuItemCompat = AndroidX.Core.View.MenuItemCompat;
 using IOPath = System.IO.Path;
-using NestedScrollView = global::AndroidX.Core.Widget.NestedScrollView;
+using AView = Android.Views.View;
 
 [assembly: ExportRenderer(typeof(Issue5461.ScrollbarFadingEnabledFalseScrollView), typeof(ScrollbarFadingEnabledFalseScrollViewRenderer))]
 [assembly: ExportRenderer(typeof(Issue1942.CustomGrid), typeof(Issue1942GridRenderer))]
@@ -51,14 +51,35 @@ using NestedScrollView = global::AndroidX.Core.Widget.NestedScrollView;
 [assembly: ExportRenderer(typeof(Issue8801.PopupStackLayout), typeof(Issue8801StackLayoutRenderer))]
 [assembly: ExportRenderer(typeof(Xamarin.Forms.Controls.Tests.TestClasses.CustomButton), typeof(CustomButtonRenderer))]
 [assembly: ExportRenderer(typeof(ScrolView11185), typeof(ScrollViewFadeRenderer))]
-
-#if PRE_APPLICATION_CLASS
-#elif FORMS_APPLICATION_ACTIVITY
-#else
+[assembly: ExportRenderer(typeof(ShellWithCustomRendererDisabledAnimations), typeof(ShellWithCustomRendererDisabledAnimationsRenderer))]
 [assembly: ExportRenderer(typeof(FlyoutPage), typeof(NativeDroidFlyoutPage))]
-#endif
+
 namespace Xamarin.Forms.ControlGallery.Android
 {
+	public class ShellWithCustomRendererDisabledAnimationsRenderer : ShellRenderer
+	{
+		public ShellWithCustomRendererDisabledAnimationsRenderer(Context context) : base(context)
+		{
+		}
+
+		protected override IShellItemRenderer CreateShellItemRenderer(ShellItem shellItem)
+		{
+			return new ShellWithCustomRendererDisabledAnimationsShellItemRenderer(this);
+		}
+
+		public class ShellWithCustomRendererDisabledAnimationsShellItemRenderer : ShellItemRenderer
+		{
+			public ShellWithCustomRendererDisabledAnimationsShellItemRenderer(IShellContext shellContext) : base(shellContext)
+			{
+			}
+
+			protected override void SetupAnimation(ShellNavigationSource navSource, AndroidX.Fragment.App.FragmentTransaction t, Page page)
+			{
+				// Don't setup any animations
+			}
+		}
+	}
+
 	public sealed class ScrollViewFadeRenderer : ScrollViewRenderer
 	{
 		public ScrollViewFadeRenderer(Context context) : base(context)
@@ -148,7 +169,7 @@ namespace Xamarin.Forms.ControlGallery.Android
 	}
 
 	public class AttachedStateEffectLabelRenderer :
-#if TEST_EXPERIMENTAL_RENDERERS
+#if !LEGACY_RENDERERS
 		Platform.Android.FastRenderers.LabelRenderer
 #else
 		LabelRenderer
@@ -909,11 +930,7 @@ namespace Xamarin.Forms.ControlGallery.Android
 
 #pragma warning disable CS0618 // Leaving in old constructor so we can verify it works
 	public class NoFlashTestNavigationPage
-#if FORMS_APPLICATION_ACTIVITY
-		: Xamarin.Forms.Platform.Android.NavigationRenderer
-#else
 		: Xamarin.Forms.Platform.Android.AppCompat.NavigationPageRenderer
-#endif
 	{
 #if !FORMS_APPLICATION_ACTIVITY
 		protected override void SetupPageTransition(FragmentTransaction transaction, bool isPush)
@@ -926,11 +943,7 @@ namespace Xamarin.Forms.ControlGallery.Android
 
 #pragma warning disable CS0618 // Leaving in old constructor so we can verify it works
 	public class QuickCollectNavigationPageRenderer
-#if FORMS_APPLICATION_ACTIVITY
-		: Xamarin.Forms.Platform.Android.NavigationRenderer
-#else
 		: Xamarin.Forms.Platform.Android.AppCompat.NavigationPageRenderer
-#endif
 	{
 		bool _disposed;
 		NavigationPage _page;
