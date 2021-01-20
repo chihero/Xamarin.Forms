@@ -122,7 +122,7 @@ namespace Xamarin.Forms.Platform.Android
 			RegisterHandler(typeof(Switch), typeof(AppCompat.SwitchRenderer), typeof(SwitchRenderer));
 			RegisterHandler(typeof(Picker), typeof(AppCompat.PickerRenderer), typeof(PickerRenderer));
 			RegisterHandler(typeof(CarouselPage), typeof(AppCompat.CarouselPageRenderer), typeof(CarouselPageRenderer));
-			
+
 			if (Forms.Flags.Contains(Flags.UseLegacyRenderers))
 			{
 				RegisterHandler(typeof(Button), typeof(AppCompat.ButtonRenderer), typeof(ButtonRenderer));
@@ -242,8 +242,7 @@ namespace Xamarin.Forms.Platform.Android
 				catch (global::Android.Views.InflateException ie)
 				{
 					if ((ie.Cause is Java.Lang.ClassNotFoundException || ie.Cause.Cause is Java.Lang.ClassNotFoundException) &&
-						ie.Message.Contains("Error inflating class android.support.v7.widget.Toolbar") &&
-						this.TargetSdkVersion() >= 29)
+						ie.Message.Contains("Error inflating class android.support.v7.widget.Toolbar"))
 					{
 						Internals.Log.Warning(nameof(FormsAppCompatActivity),
 							"Toolbar layout needs to be updated from android.support.v7.widget.Toolbar to androidx.appcompat.widget.Toolbar. " +
@@ -307,7 +306,10 @@ namespace Xamarin.Forms.Platform.Android
 			PreviousActivityDestroying.Reset();
 
 			if (_application != null)
+			{
+				_application.PropertyChanging -= AppOnPropertyChanging;
 				_application.PropertyChanged -= AppOnPropertyChanged;
+			}
 
 			PopupManager.Unsubscribe(this);
 

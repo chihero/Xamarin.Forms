@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -300,6 +301,18 @@ namespace Xamarin.Forms.Core.UnitTests
 
 			public IShellController Controller => this;
 
+			public List<List<Element>> GenerateTestFlyoutItems()
+			{
+				List<List<Element>> returnValue = new List<List<Element>>();
+
+
+				FlyoutItems
+					.OfType<IEnumerable>()
+					.ForEach(l => returnValue.Add(l.OfType<Element>().ToList()));
+
+				return returnValue;
+			}
+
 			public TestShell()
 			{
 				this.Navigated += (_, __) => NavigatedCount++;
@@ -350,6 +363,38 @@ namespace Xamarin.Forms.Core.UnitTests
 				LastShellNavigatingEventArgs = args;
 				base.OnNavigating(args);
 				OnNavigatingCount++;
+			}
+
+
+
+			public void TestNavigationArgs(ShellNavigationSource source, string from, string to)
+			{
+				TestNavigatingArgs(source, from, to);
+				TestNavigatedArgs(source, from, to);
+			}
+
+			public void TestNavigatedArgs(ShellNavigationSource source, string from, string to)
+			{
+				Assert.AreEqual(source, this.LastShellNavigatedEventArgs.Source);
+
+				if (from == null)
+					Assert.AreEqual(LastShellNavigatedEventArgs.Previous, null);
+				else
+					Assert.AreEqual(from, this.LastShellNavigatedEventArgs.Previous.Location.ToString());
+
+				Assert.AreEqual(to, this.LastShellNavigatedEventArgs.Current.Location.ToString());
+			}
+
+			public void TestNavigatingArgs(ShellNavigationSource source, string from, string to)
+			{
+				Assert.AreEqual(source, this.LastShellNavigatingEventArgs.Source);
+
+				if (from == null)
+					Assert.AreEqual(LastShellNavigatingEventArgs.Current, null);
+				else
+					Assert.AreEqual(from, this.LastShellNavigatingEventArgs.Current.Location.ToString());
+
+				Assert.AreEqual(to, this.LastShellNavigatingEventArgs.Target.Location.ToString());
 			}
 
 			public Func<bool> OnBackButtonPressedFunc;
