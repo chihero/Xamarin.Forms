@@ -48,7 +48,7 @@ namespace Xamarin.Forms.Platform.iOS
 
 		public override void LayoutSubviews()
 		{
-			if (_previousSize != Bounds.Size)
+			if (Element != null && _previousSize != Bounds.Size)
 			{
 				SetBackground(Element.Background);
 				SetNeedsDisplay();

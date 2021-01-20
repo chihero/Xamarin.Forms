@@ -47,6 +47,102 @@ namespace Xamarin.Forms.Core.UnitTests
 			Assume.That(shell.CurrentState.Location.ToString(), Is.EqualTo("//one/tabone/content"));
 		}
 
+		[Test]
+		public void CancelNavigationOccurringOutsideGotoAsyncWithoutDelay()
+		{
+			var flyoutItem = CreateShellItem<FlyoutItem>();
+			TestShell shell = new TestShell()
+			{
+				Items = { flyoutItem }
+			};
+
+			var navigatingToShellContent = CreateShellContent();
+			shell.Items[0].Items[0].Items.Add(navigatingToShellContent);
+
+			bool executed = false;
+			TaskCompletionSource<object> taskCompletionSource = new TaskCompletionSource<object>();
+
+			ShellContent contentActiveBeforeCompletingDeferral = null;
+			shell.Navigating += (_, args) =>
+			{
+				var deferral = args.GetDeferral();
+				contentActiveBeforeCompletingDeferral = flyoutItem.Items[0].Items[0];
+				args.Cancel();
+				deferral.Complete();
+				executed = true;
+			};
+
+			bool result = shell.Controller.ProposeNavigation(
+				ShellNavigationSource.ShellContentChanged, flyoutItem, flyoutItem.Items[0], navigatingToShellContent, flyoutItem.Items[0].Stack, true);
+
+			Assert.IsTrue(executed);
+			Assert.IsFalse(result);
+		}
+
+		[Test]
+		public async Task CancelNavigationOccurringOutsideGotoAsync()
+		{
+			var flyoutItem = CreateShellItem<FlyoutItem>();
+			TestShell shell = new TestShell()
+			{
+				Items = { flyoutItem }
+			};
+
+			var navigatingToShellContent = CreateShellContent();
+			shell.Items[0].Items[0].Items.Add(navigatingToShellContent);
+
+			bool executed = false;
+			TaskCompletionSource<object> taskCompletionSource = new TaskCompletionSource<object>();
+
+			ShellContent contentActiveBeforeCompletingDeferral = null;
+
+			shell.Navigating += async (_, args) =>
+			{
+				var deferral = args.GetDeferral();
+				await Task.Delay(100);
+
+				contentActiveBeforeCompletingDeferral = flyoutItem.Items[0].Items[0];
+				executed = true;
+				deferral.Complete();
+			};
+
+			shell.Navigated += (_, args) =>
+			{
+				taskCompletionSource.SetResult(true);
+			};
+
+			shell.Controller.ProposeNavigation(
+				ShellNavigationSource.ShellContentChanged, flyoutItem, flyoutItem.Items[0], navigatingToShellContent, flyoutItem.Items[0].Stack, true);
+
+			await taskCompletionSource.Task;
+
+			Assert.IsTrue(executed);
+			Assert.AreNotEqual(contentActiveBeforeCompletingDeferral, navigatingToShellContent);
+			Assert.AreEqual(flyoutItem.Items[0].Items[0], contentActiveBeforeCompletingDeferral, "Navigation to new Content was not deferred");
+			Assert.AreEqual(flyoutItem.Items[0].CurrentItem, navigatingToShellContent, "Navigation after completing the deferral failed");
+		}
+
+		[Test]
+		public async Task ImmediatelyCompleteDeferral()
+		{
+			TestShell shell = new TestShell()
+			{
+				Items = { CreateShellItem<FlyoutItem>() }
+			};
+
+			bool executed = false;
+			shell.Navigating += (_, args) =>
+			{
+				var deferral = args.GetDeferral();
+				executed = true;
+				deferral.Complete();
+			};
+
+			await shell.Navigation.PushAsync(new ContentPage());
+			Assert.IsTrue(executed);
+			Assert.AreEqual(2, shell.Navigation.NavigationStack.Count);
+		}
+
 		[TestCase("PopToRoot")]
 		[TestCase("Pop")]
 		public async Task DeferPopNavigation(string testCase)
@@ -92,9 +188,9 @@ namespace Xamarin.Forms.Core.UnitTests
 		[TestCase("Pop")]
 		[TestCase("GoToAsync")]
 		[TestCase("Push")]
-		public async Task NavigationTaskCompletesAfterDeferalHasFinished(string testCase)
+		public async Task NavigationTaskCompletesAfterDeferralHasFinished(string testCase)
 		{
-			Routing.RegisterRoute(nameof(NavigationTaskCompletesAfterDeferalHasFinished), typeof(ContentPage));
+			Routing.RegisterRoute(nameof(NavigationTaskCompletesAfterDeferralHasFinished), typeof(ContentPage));
 			var shell = new TestShell()
 			{
 				Items = { CreateShellItem<FlyoutItem>() }
@@ -117,7 +213,7 @@ namespace Xamarin.Forms.Core.UnitTests
 					await shell.Navigation.PopAsync();
 					break;
 				case "GoToAsync":
-					await shell.GoToAsync(nameof(NavigationTaskCompletesAfterDeferalHasFinished));
+					await shell.GoToAsync(nameof(NavigationTaskCompletesAfterDeferralHasFinished));
 					break;
 				case "Push":
 					await shell.Navigation.PushAsync(new ContentPage());
@@ -128,7 +224,7 @@ namespace Xamarin.Forms.Core.UnitTests
 		}
 
 		[Test]
-		public void CompletingTheSameDeferalTokenTwiceDoesntDoAnything()
+		public void CompletingTheSameDeferralTokenTwiceDoesntDoAnything()
 		{
 			var args = CreateShellNavigatedEventArgs();
 			var token = args.GetDeferral();
@@ -170,6 +266,25 @@ namespace Xamarin.Forms.Core.UnitTests
 
 			Assert.That(shell.CurrentState.Location.ToString(),
 				Is.EqualTo($"//{itemRoute}/{Routing.GetRoute(page1)}"));
+		}
+
+		[Test]
+		public async Task InsertTwoPagesAtSeparatePoints()
+		{
+			Routing.RegisterRoute("pagefirstmiddle", typeof(ContentPage));
+			Routing.RegisterRoute("pagesecondmiddle", typeof(ContentPage));
+			Routing.RegisterRoute("last", typeof(ContentPage));
+			Routing.RegisterRoute("middle", typeof(ContentPage));
+
+			var shell = new TestShell(
+				CreateShellItem(shellItemRoute: "item")
+			);
+
+			await shell.GoToAsync("//item/middle/last");
+			await shell.GoToAsync("//item/pagefirstmiddle/middle/pagesecondmiddle/last");
+
+			Assert.That(shell.CurrentState.Location.ToString(),
+				Is.EqualTo("//item/pagefirstmiddle/middle/pagesecondmiddle/last"));
 		}
 
 		[Test]
@@ -365,6 +480,161 @@ namespace Xamarin.Forms.Core.UnitTests
 			Assert.AreEqual("OnRemovePage", tab.NavigationsFired[1]);
 			Assert.AreEqual("OnRemovePage", tab.NavigationsFired[2]);
 			Assert.AreEqual(3, tab.NavigationsFired.Count);
+		}
+
+		[Test]
+		public async Task PoppingSamePageSetsCorrectNavigationSource()
+		{
+			Routing.RegisterRoute("detailspage", typeof(ContentPage));
+			var shell = new TestShell(CreateShellItem(shellItemRoute: "item1"));
+			await shell.GoToAsync("detailspage/detailspage");
+			await shell.Navigation.PopAsync();
+
+
+			shell.TestNavigatingArgs(ShellNavigationSource.Pop,
+				"//item1/detailspage/detailspage", $"..");
+
+			shell.TestNavigatedArgs(ShellNavigationSource.Pop,
+				"//item1/detailspage/detailspage", $"//item1/detailspage");
+		}
+
+		[Test]
+		public async Task PoppingSetsCorrectNavigationSource()
+		{
+			var shell = new TestShell(CreateShellItem(shellContentRoute: "item1"));
+			shell.RegisterPage("page1");
+			shell.RegisterPage("page2");
+
+			await shell.GoToAsync("page1");
+			await shell.GoToAsync("page2");
+			await shell.Navigation.PopAsync();
+
+			shell.TestNavigatingArgs(ShellNavigationSource.Pop,
+				"//item1/page1/page2", $"..");
+
+			shell.TestNavigatedArgs(ShellNavigationSource.Pop,
+				"//item1/page1/page2", $"//item1/page1");
+		}
+
+		[Test]
+		public async Task PopToRootSetsCorrectNavigationSource()
+		{
+			var shell = new TestShell(CreateShellItem());
+			await shell.Navigation.PushAsync(new ContentPage());
+			await shell.Navigation.PushAsync(new ContentPage());
+			await shell.Navigation.PopToRootAsync();
+			Assert.AreEqual(ShellNavigationSource.PopToRoot, shell.LastShellNavigatingEventArgs.Source);
+
+			await shell.Navigation.PushAsync(new ContentPage());
+			await shell.Navigation.PushAsync(new ContentPage());
+
+			await shell.Navigation.PopAsync();
+			Assert.AreEqual(ShellNavigationSource.Pop, shell.LastShellNavigatingEventArgs.Source);
+
+			await shell.Navigation.PopAsync();
+			Assert.AreEqual(ShellNavigationSource.PopToRoot, shell.LastShellNavigatingEventArgs.Source);
+		}
+
+		[Test]
+		public async Task PushingSetsCorrectNavigationSource()
+		{
+			var shell = new TestShell(CreateShellItem(shellItemRoute: "item1"));
+			shell.RegisterPage(nameof(PushingSetsCorrectNavigationSource));
+			await shell.GoToAsync(nameof(PushingSetsCorrectNavigationSource));
+
+			shell.TestNavigatingArgs(ShellNavigationSource.Push,
+				"//item1", $"{nameof(PushingSetsCorrectNavigationSource)}");
+
+			shell.TestNavigatedArgs(ShellNavigationSource.Push,
+				"//item1", $"//item1/{nameof(PushingSetsCorrectNavigationSource)}");
+		}
+
+		[Test]
+		public async Task ChangingShellItemSetsCorrectNavigationSource()
+		{
+			var shell = new TestShell(
+				CreateShellItem(shellItemRoute: "item1"),
+				CreateShellItem(shellItemRoute: "item2")
+			);
+
+			await shell.GoToAsync("//item2");
+
+			shell.TestNavigationArgs(ShellNavigationSource.ShellItemChanged,
+				"//item1", "//item2");
+		}
+
+		[Test]
+		public async Task ChangingShellSectionSetsCorrectNavigationSource()
+		{
+			var shell = new TestShell(
+				CreateShellItem(shellSectionRoute: "item1")
+			);
+
+			shell.Items[0].Items.Add(CreateShellSection(shellContentRoute: "item2"));
+
+			await shell.GoToAsync("//item2");
+
+			shell.TestNavigationArgs(ShellNavigationSource.ShellSectionChanged,
+				"//item1", "//item2");
+		}
+
+		[Test]
+		public async Task ChangingShellContentSetsCorrectNavigationSource()
+		{
+			var shell = new TestShell(
+				CreateShellItem(shellContentRoute: "item1")
+			);
+
+			shell.Items[0].Items[0].Items.Add(CreateShellContent(shellContentRoute: "item2"));
+
+			await shell.GoToAsync("//item2");
+
+			shell.TestNavigationArgs(ShellNavigationSource.ShellContentChanged,
+				"//item1", "//item2");
+		}
+
+		[Test]
+		public async Task InsertPageSetsCorrectNavigationSource()
+		{
+			Routing.RegisterRoute("pagemiddle", typeof(ContentPage));
+			Routing.RegisterRoute("page", typeof(ContentPage));
+			var shell = new TestShell(
+				CreateShellItem(shellItemRoute: "item")
+			);
+
+			await shell.GoToAsync("//item/page");
+			await shell.GoToAsync("//item/pagemiddle/page");
+
+			shell.TestNavigationArgs(ShellNavigationSource.Insert,
+				"//item/page", "//item/pagemiddle/page");
+		}
+
+		[Test]
+		public async Task RemovePageSetsCorrectNavigationSource()
+		{
+			Routing.RegisterRoute("pagemiddle", typeof(ContentPage));
+			Routing.RegisterRoute("page", typeof(ContentPage));
+			var shell = new TestShell(
+				CreateShellItem(shellItemRoute: "item")
+			);
+
+			await shell.GoToAsync("//item/pagemiddle/page");
+			await shell.GoToAsync("//item/page");
+
+
+			shell.TestNavigationArgs(ShellNavigationSource.Remove,
+				"//item/pagemiddle/page", "//item/page");
+		}
+
+		[Test]
+		public async Task InitialNavigatingArgs()
+		{
+			var shell = new TestShell(
+				CreateShellItem(shellItemRoute: "item")
+			);
+
+			shell.TestNavigationArgs(ShellNavigationSource.ShellItemChanged,
+				null, "//item");
 		}
 
 		public class NavigationMonitoringTab : Tab

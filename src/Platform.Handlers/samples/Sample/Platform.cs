@@ -1,5 +1,4 @@
 ﻿using Xamarin.Forms;
-using Xamarin.Platform;
 using Xamarin.Platform.Handlers;
 using RegistrarHandlers = Xamarin.Platform.Registrar;
 
@@ -15,16 +14,16 @@ namespace Sample
 				return;
 
 			HasInit = true;
-
-			RegistrarHandlers.Handlers.Register<BoxView, BoxViewHandler>();
-			RegistrarHandlers.Handlers.Register<Button, ButtonHandler>();
-			RegistrarHandlers.Handlers.Register<Label, LabelHandler>();
+      
+      RegistrarHandlers.Handlers.Register<BoxView, BoxViewHandler>();
+      RegistrarHandlers.Handlers.Register<Button, ButtonHandler>();
+      RegistrarHandlers.Handlers.Register<Label, LabelHandler>();
 			RegistrarHandlers.Handlers.Register<Slider, SliderHandler>();
-
+      
+			RegistrarHandlers.Handlers.Register<VerticalStackLayout, LayoutHandler>();
 			RegistrarHandlers.Handlers.Register<HorizontalStackLayout, LayoutHandler>();
 			RegistrarHandlers.Handlers.Register<FlexLayout, LayoutHandler>();
 			RegistrarHandlers.Handlers.Register<Xamarin.Forms.StackLayout, LayoutHandler>();
-			RegistrarHandlers.Handlers.Register<VerticalStackLayout, LayoutHandler>();
 		}
 	}
 }
